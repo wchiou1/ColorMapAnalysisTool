@@ -1,0 +1,26 @@
+.scale{
+	height:300px;
+	width:450px;
+	border: 5px solid red;
+}
+
+canvas{
+	position: relative; 
+	top: 20px; 
+	left: 20px; 
+	border: 5px solid red;
+}
+
+.image{
+	background-color: yellow;
+	width: 300px;
+	height: 300px;
+}
+
+#drop {
+  min-height: 150px;
+  width: 250px;
+  border: 1px solid blue;
+  margin: 10px;
+  padding: 10px;
+}
