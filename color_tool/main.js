@@ -3,7 +3,7 @@ var canvas;
 var gl;
 var verticesBuffer;
 var verticesColorBuffer;
-var verticesIndexBuffer;
+//var verticesIndexBuffer;
 var mvMatrix;
 var shaderProgram;
 var vertexPositionAttribute;
@@ -24,7 +24,6 @@ var orthogonal={
 // start
 //
 // Called when the canvas is created to get the ball rolling.
-// Figuratively, that is. There's nothing moving in this demo.
 //
 function start() {
 
@@ -52,6 +51,7 @@ function start() {
 
 		// Set up to draw the scene periodically.
 		drawScene();
+		// no need to update screen every 15ms
 		//setInterval(drawScene, 15);
 	  }
 	
@@ -82,8 +82,7 @@ function initWebGL() {
 //
 // initBuffers
 //
-// Initialize the buffers we'll need. For this demo, we just have
-// one object -- a simple two-dimensional square.
+// Initialize the buffers we'll need.
 //
 function initBuffers() {
 
@@ -91,10 +90,8 @@ function initBuffers() {
 
   verticesBuffer = gl.createBuffer();
 
-
-
-  // Now create an array of vertices for the cube.
-
+  // Now create an array of vertices 
+	//each value on the image2DArray is represented with a square with 4 vertices
 	createImageVertices();
 
   // Now set up the colors 
@@ -104,10 +101,11 @@ function initBuffers() {
 
   // Build the element array buffer; this specifies the indices
   // into the vertex array for each face's vertices.
-  
+  // -----not using this now --- this method will not display all the squares
+  //just leaving this here for reference
 
-  verticesIndexBuffer = gl.createBuffer();
-  createImageVerticesIndex();
+  //verticesIndexBuffer = gl.createBuffer();
+  //createImageVerticesIndex();
  
 }
 
@@ -124,11 +122,9 @@ function drawScene() {
   
   
   // Establish the perspective with which we want to view the
-  // scene. Our field of view is 45 degrees, with a width/height
-  // ratio of ???, and we only want to see objects between 0.1 units
-  // and 100 units away from the camera.
-  // no not now ...
-  //it is actually ortho not perspective right now
+  // scene....
+  // no not now ...perspectiveMatrix is a misnomer
+  //it is actually orthogonal not perspective right now
   perspectiveMatrix = makeOrtho(orthogonal.l, orthogonal.r, orthogonal.b, orthogonal.t, 0.1, 100.0);
 	
   // Set the drawing position to the "identity" point, which is
@@ -136,17 +132,13 @@ function drawScene() {
 
   loadIdentity();
 
-  //scale image to image size
-  //if(imageWidth&&imageHeight){
-	//  mvScale([imageWidth,imageHeight,0]);
-  //}
   // Now move the drawing position a bit to where we want to start
   // drawing the square.
   mvTranslate([-0.0, 0.0, -6.0]);
 
-  // Draw the ??points? by binding the array buffer to the cube's vertices
-  // array, setting attributes, and pushing it to GL.
+  
 	mvPushMatrix();
+	//set position attribute of vertices
   gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
   gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 
@@ -155,16 +147,20 @@ function drawScene() {
   gl.bindBuffer(gl.ARRAY_BUFFER, verticesColorBuffer);
   gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
 
-  // Draw the ?points.
-
-  
- // console.log(perspectiveMatrix);
- // console.log(mvMatrix);
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesIndexBuffer);
+  // Draw the squares
+	
+	//not drawing using indices right now
+	//gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesIndexBuffer);
+	
+	//pass in uniforms to shader
 	setMatrixUniforms();
+	
+	//draw the squares one by one as two triangles
 	for(var i=0;i<imageWidth*imageHeight;i++){
 		gl.drawArrays(gl.TRIANGLE_FAN, i*4, 4);
 	}
+	
+	//again not using indices to draw because the index runs out of range (unsighed_short)
 	//gl.drawElements(gl.TRIANGLES, imageWidth*imageHeight*6, gl.UNSIGNED_SHORT, 0);
 	 mvPopMatrix();
 }
@@ -316,6 +312,7 @@ function createImageColors(){
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageColors), gl.STATIC_DRAW);
 }
 
+//not used for now
 function createImageVerticesIndex(){
 	var verticesIndex=[];
 	//total imageWidth*imageHeight*2 triangles
@@ -333,22 +330,14 @@ function createImageVerticesIndex(){
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(verticesIndex), gl.STATIC_DRAW);
 }
 
+//set the orthogonal view to view the entire image
 function setView(){
 	orthogonal.l=0;
 	orthogonal.r=imageWidth;
 	orthogonal.b=0;
 	orthogonal.t=imageHeight;
 }
-/*
-//not complete, don't use it
-function createTexture(){
-	texture= gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, texture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE,gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array(image2DArray));
-	// ...
-	
-}
-*/
+
 
 //
 // Matrix utility functions
@@ -415,7 +404,6 @@ if(window.FileReader) {
   	
     function cancel(e) {
        e.preventDefault(); 
-	  //console.log('something');
     }
 	
     addEventHandler(drop, 'dragover', cancel);
@@ -448,15 +436,13 @@ if(window.FileReader) {
 							if(values[j]) image2DArray.push(Number(values[j]));
 						}
 					}
-					//console.log(image2DArray);
-					//console.log("height="+imageHeight);
-					//console.log("width="+imageWidth);
-					
+
 					
 					canvas.style.width=imageWidth+"px";
 					canvas.style.height=imageHeight+"px";
 					createImageVertices();
 					createImageColors();
+					//createImageVerticesIndex();
 					setView();
 					drawScene();
 			
