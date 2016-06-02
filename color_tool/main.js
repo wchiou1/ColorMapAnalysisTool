@@ -1,12 +1,25 @@
-var allCanvas;
+
 var canvas;
 var gl;
-var squareVerticesBuffer;
+var verticesBuffer;
+var verticesColorBuffer;
+var verticesIndexBuffer;
 var mvMatrix;
 var shaderProgram;
 var vertexPositionAttribute;
+var vertexColorAttribute;
 var perspectiveMatrix;
 
+
+var image2DArray=[];
+var imageWidth;
+var imageHeight;
+var orthogonal={
+	l: 0,
+	r: 100,
+	t: 100,
+	b: 0
+};
 //
 // start
 //
@@ -14,10 +27,9 @@ var perspectiveMatrix;
 // Figuratively, that is. There's nothing moving in this demo.
 //
 function start() {
-	allCanvas=$("#glcanvas");
-	for(var i=0; i<allCanvas.length; i++){
-	  //canvas = document.getElementById("glcanvas");
-		canvas=allCanvas[i];
+
+	  canvas = document.getElementById("glcanvas");
+
 	  initWebGL(canvas);      // Initialize the GL context
 
 	  // Only continue if WebGL is available and working
@@ -42,7 +54,7 @@ function start() {
 		drawScene();
 		//setInterval(drawScene, 15);
 	  }
-	}
+	
 }
 
 //
@@ -75,30 +87,28 @@ function initWebGL() {
 //
 function initBuffers() {
 
-  // Create a buffer for the square's vertices.
+  // Create a buffer for the cube's vertices.
 
-  squareVerticesBuffer = gl.createBuffer();
+  verticesBuffer = gl.createBuffer();
 
-  // Select the squareVerticesBuffer as the one to apply vertex
-  // operations to from here out.
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBuffer);
 
-  // Now create an array of vertices for the square. Note that the Z
-  // coordinate is always 0 here.
+  // Now create an array of vertices for the cube.
 
-  var vertices = [
-    1.0,  1.0,  0.0,
-    -1.0, 1.0,  0.0,
-    1.0,  -1.0, 0.0,
-    -1.0, -1.0, 0.0
-  ];
+	createImageVertices();
 
-  // Now pass the list of vertices into WebGL to build the shape. We
-  // do this by creating a Float32Array from the JavaScript array,
-  // then use it to fill the current vertex buffer.
+  // Now set up the colors 
+	verticesColorBuffer = gl.createBuffer();
 
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+	createImageColors();
+
+  // Build the element array buffer; this specifies the indices
+  // into the vertex array for each face's vertices.
+  
+
+  verticesIndexBuffer = gl.createBuffer();
+  createImageVerticesIndex();
+ 
 }
 
 //
@@ -111,30 +121,52 @@ function drawScene() {
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+  
+  
   // Establish the perspective with which we want to view the
   // scene. Our field of view is 45 degrees, with a width/height
-  // ratio of 640:480, and we only want to see objects between 0.1 units
+  // ratio of ???, and we only want to see objects between 0.1 units
   // and 100 units away from the camera.
-
-  perspectiveMatrix = makePerspective(45, 640.0/480.0, 0.1, 100.0);
-
+  // no not now ...
+  //it is actually ortho not perspective right now
+  perspectiveMatrix = makeOrtho(orthogonal.l, orthogonal.r, orthogonal.b, orthogonal.t, 0.1, 100.0);
+	
   // Set the drawing position to the "identity" point, which is
   // the center of the scene.
 
   loadIdentity();
 
+  //scale image to image size
+  //if(imageWidth&&imageHeight){
+	//  mvScale([imageWidth,imageHeight,0]);
+  //}
   // Now move the drawing position a bit to where we want to start
   // drawing the square.
-
   mvTranslate([-0.0, 0.0, -6.0]);
 
-  // Draw the square by binding the array buffer to the square's vertices
+  // Draw the ??points? by binding the array buffer to the cube's vertices
   // array, setting attributes, and pushing it to GL.
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBuffer);
+	mvPushMatrix();
+  gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
   gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-  setMatrixUniforms();
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  // Set the colors attribute for the vertices.
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, verticesColorBuffer);
+  gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
+
+  // Draw the ?points.
+
+  
+ // console.log(perspectiveMatrix);
+ // console.log(mvMatrix);
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesIndexBuffer);
+	setMatrixUniforms();
+	for(var i=0;i<imageWidth*imageHeight;i++){
+		gl.drawArrays(gl.TRIANGLE_FAN, i*4, 4);
+	}
+	//gl.drawElements(gl.TRIANGLES, imageWidth*imageHeight*6, gl.UNSIGNED_SHORT, 0);
+	 mvPopMatrix();
 }
 
 //
@@ -163,6 +195,9 @@ function initShaders() {
 
   vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
   gl.enableVertexAttribArray(vertexPositionAttribute);
+  
+  vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
+  gl.enableVertexAttribArray(vertexColorAttribute);
 }
 
 //
@@ -225,6 +260,96 @@ function getShader(gl, id) {
   return shader;
 }
 
+function createImageVertices(){
+	//total number of vertices = ImageWidth x imageHeight x 4
+	//upper left of image at (0,imageHeight)
+	//lower right of image at (imageWidth,0)
+	var imageVertices=[];
+	for(var i=imageHeight;i>0;i--){
+		for(var j=0; j<imageWidth; j++){
+			imageVertices.push(j);
+			imageVertices.push(i);
+			imageVertices.push(0);
+			
+			imageVertices.push(j+1);
+			imageVertices.push(i);
+			imageVertices.push(0);
+			
+			imageVertices.push(j+1);
+			imageVertices.push(i-1);
+			imageVertices.push(0);
+			
+			imageVertices.push(j);
+			imageVertices.push(i-1);
+			imageVertices.push(0);
+			
+		}
+	}
+	// Select the verticesBuffer as the one to apply vertex
+  // operations to from here out.
+  gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
+	
+	 // Now pass the list of vertices into WebGL to build the shape. We
+  // do this by creating a Float32Array from the JavaScript array,
+  // then use it to fill the current vertex buffer.
+
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageVertices), gl.STATIC_DRAW);
+
+}
+
+function createImageColors(){
+	//a color for each vertex
+	var imageColors=[];
+	for(var i=0;i<imageHeight;i++){
+		for(var j=0; j<imageWidth; j++){
+			var color=image2DArray[imageWidth*i+j];
+			for(var k=0;k<4;k++){
+				imageColors.push(color);
+				imageColors.push(color);
+				imageColors.push(color);
+				imageColors.push(1);
+			}
+		}
+	}
+	gl.bindBuffer(gl.ARRAY_BUFFER, verticesColorBuffer);
+	
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageColors), gl.STATIC_DRAW);
+}
+
+function createImageVerticesIndex(){
+	var verticesIndex=[];
+	//total imageWidth*imageHeight*2 triangles
+	for(var i=0;i<imageWidth*imageHeight;i++){
+		verticesIndex.push(4*i+0);
+		verticesIndex.push(4*i+1);
+		verticesIndex.push(4*i+2);
+		
+		verticesIndex.push(4*i+0);
+		verticesIndex.push(4*i+2);
+		verticesIndex.push(4*i+3);
+	}
+	
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesIndexBuffer);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(verticesIndex), gl.STATIC_DRAW);
+}
+
+function setView(){
+	orthogonal.l=0;
+	orthogonal.r=imageWidth;
+	orthogonal.b=0;
+	orthogonal.t=imageHeight;
+}
+/*
+//not complete, don't use it
+function createTexture(){
+	texture= gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE,gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array(image2DArray));
+	// ...
+	
+}
+*/
+
 //
 // Matrix utility functions
 //
@@ -240,6 +365,34 @@ function multMatrix(m) {
 function mvTranslate(v) {
   multMatrix(Matrix.Translation($V([v[0], v[1], v[2]])).ensure4x4());
 }
+function mvScale(v){
+	multMatrix(Matrix.Diagonal($V([v[0], v[1], v[2]])).ensure4x4());
+}
+var mvMatrixStack = [];
+function mvPushMatrix(m) {
+  if (m) {
+    mvMatrixStack.push(m.dup());
+    mvMatrix = m.dup();
+  } else {
+    mvMatrixStack.push(mvMatrix.dup());
+  }
+}
+
+function mvPopMatrix() {
+  if (!mvMatrixStack.length) {
+    throw("Can't pop from an empty matrix stack.");
+  }
+
+  mvMatrix = mvMatrixStack.pop();
+  return mvMatrix;
+}
+
+function mvRotate(angle, v) {
+  var inRadians = angle * Math.PI / 180.0;
+
+  var m = Matrix.Rotation(inRadians, $V([v[0], v[1], v[2]])).ensure4x4();
+  multMatrix(m);
+}
 
 function setMatrixUniforms() {
   var pUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
@@ -248,3 +401,86 @@ function setMatrixUniforms() {
   var mvUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
   gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
 }
+//
+//handle the drop event
+//
+
+$(document).on('load',dropInit());
+function dropInit(){
+if(window.FileReader) { 
+  addEventHandler(window, 'load', function() {
+    var status = document.getElementById('status');
+    var drop   = document.getElementById('drop');
+    var list   = document.getElementById('list');
+  	
+    function cancel(e) {
+       e.preventDefault(); 
+	  //console.log('something');
+    }
+	
+    addEventHandler(drop, 'dragover', cancel);
+    addEventHandler(drop, 'dragenter', cancel);
+	addEventHandler(drop,'drop', function(e) {
+		e = e || window.event;
+		cancel(e);
+        e.stopPropagation();
+        
+        var files = e.dataTransfer.files; // Array of all files
+        for (var i=0, file; file=files[i]; i++) {
+                var reader = new FileReader();
+                reader.onload = function(e2) { // finished reading file data.
+					image2DArray=[];
+					imageHeight=undefined;
+					imageWidth=undefined;
+					//parse the data into the array
+                    var lines=e2.target.result.split('\n');
+					if(lines[lines.length-1]=="")lines.pop();
+					imageHeight=lines.length;
+					for(var i=0;i<lines.length;i++) {
+						var values=lines[i].split(' ');
+						if(values[values.length-1]=="\r")values.pop();
+						if(!imageWidth){
+							imageWidth = values.length;
+						}else if(imageWidth!=values.length){
+							alert('error reading the file. line:'+i+ ", num:"+values.length+", value=("+values[0]+")");
+						}
+						for(var j=0; j<values.length; j++){
+							if(values[j]) image2DArray.push(Number(values[j]));
+						}
+					}
+					//console.log(image2DArray);
+					//console.log("height="+imageHeight);
+					//console.log("width="+imageWidth);
+					
+					
+					canvas.style.width=imageWidth+"px";
+					canvas.style.height=imageHeight+"px";
+					createImageVertices();
+					createImageColors();
+					setView();
+					drawScene();
+			
+                }
+                reader.readAsText(file); // start reading the file data.
+			}
+		}) 
+  });
+} else { 
+  document.getElementById('status').innerHTML = 'Your browser does not support the HTML5 FileReader.';
+}
+}
+
+
+function addEventHandler(obj, evt, handler) {
+    if(obj.addEventListener) {
+        // W3C method
+        obj.addEventListener(evt, handler, false);
+    } else if(obj.attachEvent) {
+        // IE method.
+        obj.attachEvent('on'+evt, handler);
+    } else {
+        // Old school method.
+        obj['on'+evt] = handler;
+    }
+}
+

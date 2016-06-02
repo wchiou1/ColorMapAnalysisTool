@@ -14,8 +14,6 @@ if(window.FileReader) {
        e.preventDefault(); 
 	  console.log('something');
     }
-  
-    // Tells the browser that we *can* drop on this target
 	
     addEventHandler(drop, 'dragover', cancel);
     addEventHandler(drop, 'dragenter', cancel);
@@ -30,19 +28,23 @@ if(window.FileReader) {
                 reader.onload = function(e2) { // finished reading file data.
 					//parse the data into the array
                     var lines=e2.target.result.split('\n');
+					if(lines[lines.length-1]=="")lines.pop();
 					imageHeight=lines.length;
 					for(var i=0;i<lines.length;i++) {
 						var values=lines[i].split(' ');
+						if(values[values.length-1]=="\r")values.pop();
 						if(!imageWidth){
 							imageWidth = values.length;
 						}else if(imageWidth!=values.length){
-							//alert('error reading the file. line'+i+ ",num"+values.length);
+							alert('error reading the file. line:'+i+ ", num:"+values.length+", value=("+values[0]+")");
 						}
 						for(var j=0; j<values.length; j++){
-							image2DArray.push(values[j]);
+							if(values[j]) image2DArray.push(Number(values[j]));
 						}
 					}
 					console.log(image2DArray);
+					console.log("height="+imageHeight);
+					console.log("width="+imageWidth);
                 }
                 reader.readAsText(file); // start reading the file data.
 			}
