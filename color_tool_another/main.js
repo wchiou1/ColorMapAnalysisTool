@@ -18,6 +18,7 @@ var perspectiveMatrix;
 var img_data=[];
 var scales=[];
 var img_panels=[];
+var color_panels=[];
 
 var orthogonal={
 	l: 0,
@@ -235,7 +236,7 @@ function start() {
 		// Here's where we call the routine that builds all the objects
 		// we'll be drawing.
 
-		initBuffers();
+		//initBuffers();
 
 		// Set up to draw the scene periodically.
 		//drawScene();
@@ -283,11 +284,16 @@ function drawScene() {
   // Clear the canvas before we start drawing on it.
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
+	
+	for(var i=0;i<img_panels.length;i++){
+		img_panels[i].move(60*i,50);
+		img_panels[i].draw();
+	}
 	
 	
-	for(var i=0;i<scales.length;i++){
-		drawScale(60*i,50,50,50,i);
+	for(var i=0;i<color_panels.length;i++){
+		color_panels[i].move(60*i,50);
+		color_panels[i].draw();
 	}
 }
 /*
@@ -675,10 +681,11 @@ if(window.FileReader) {
         for (var i=0, file; file=files[i]; i++) {
                 var reader = new FileReader();
                 reader.onload = function(e2) { // finished reading file data.
-					var imgData={};
-					imgData.image2DArray=[];
-					imgData.imageHeight=undefined;
-					imgData.imageWidth=undefined;
+					var image2DArray=[];
+					var imageHeight= undefined;
+					var imageWidth= undefined;
+					
+					
 					//parse the data into the array
                     var lines=e2.target.result.split('\n');
 					if(lines[lines.length-1]=="")lines.pop();
@@ -695,9 +702,13 @@ if(window.FileReader) {
 							if(values[j]) imgData.image2DArray.push(Number(values[j]));
 						}
 					}
-					var
+					var imgData ={
+						w: imageWidth,
+						h: imageHeight,
+						data: image2DArray
+					};
 					img_data.push(imgData);
-					img_panels.push(new img_panel(0,0,1,1,img_data.length-1,null));
+					img_panels.push(new ImagePanel(0,0,1,1,img_data.length-1,null));
 					//canvas.style.width=imageWidth+"px";
 					//canvas.style.height=imageHeight+"px";
 					//createImageVertices();
@@ -773,6 +784,9 @@ function readTextToScale(text){
 		scale.push(rgb);
 	}
 	scales.push(scale);
+	
+	color_panels.push(new ColorPanel(0,0,50,50,scales.length-1));
+
 	//console.log("drawscene");
 	drawScene();
 }
