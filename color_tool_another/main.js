@@ -487,7 +487,7 @@ function dropInit(){
 if(window.FileReader) { 
   addEventHandler(window, 'load', function() {
     var status = document.getElementById('status');
-    var drop   = document.getElementById('drop_img');
+    var drop   = document.getElementById('drop');
     var list   = document.getElementById('list');
   	
     function cancel(e) {
