@@ -1,3 +1,4 @@
+
 var canvas;
 var gl;
 
@@ -33,9 +34,10 @@ var ImagePanel=function(x,y,w,h,dataID,cID){
 		self.w=w;
 		self.h=h;
 	};
-	this.move=function(x,y){
+	this.move=function(x,y,z){
 				self.x=x;
 				self.y=-y;
+				self.z=z|0;
 				};
 	this.changeColor=function(cID){
 				self.cindex=cID;
@@ -124,7 +126,7 @@ var ImagePanel=function(x,y,w,h,dataID,cID){
 			
 			loadIdentity();	
 			mvPushMatrix();
-			mvTranslate([self.x, self.y, -1.0]);
+			mvTranslate([self.x, self.y, self.z-1.0]);
 			mvScale([self.w,self.h,1]);
 			gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
 			gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
@@ -146,15 +148,17 @@ var ImagePanel=function(x,y,w,h,dataID,cID){
 var ColorPanel= function(x,y,w,h,cID){ 
 	this.x=x;
 	this.y=y;
+	this.z=0;
 	this.w=w;
 	this.h=h;
 	this.cindex=cID;
 	this.verticesBuffer=gl.createBuffer();
 	this.verticesColorBuffer=gl.createBuffer();
 	var self=this;
-	this.move=function(x,y){
+	this.move=function(x,y,z){
 				self.x=x;
 				self.y=-y;
+				self.z=z|0;
 				};
 	this.create= 
 	function(id){//(x,y) top-left coordinate, width, height, index of scale
@@ -206,7 +210,7 @@ var ColorPanel= function(x,y,w,h,cID){
 		
 		loadIdentity();
 		mvPushMatrix();
-		mvTranslate([self.x, self.y, -1.0]);
+		mvTranslate([self.x, self.y, self.z-1.0]);
 		mvScale([self.w,self.h,1]);
 		
 		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
@@ -297,7 +301,7 @@ function drawScene() {
 		img_panels[l-1].scale(img_data[0].w, img_data[0].h);
 		img_panels[l-1].move(100,150);
 		img_panels[l-1].draw();
-		img_panels[l-1].changeColor(1);
+		img_panels[l-1].changeColor(2);
 		img_panels[l-1].move(300,150);
 		img_panels[l-1].draw();
 		
@@ -483,7 +487,7 @@ function dropInit(){
 if(window.FileReader) { 
   addEventHandler(window, 'load', function() {
     var status = document.getElementById('status');
-    var drop   = document.getElementById('drop');
+    var drop   = document.getElementById('drop_img');
     var list   = document.getElementById('list');
   	
     function cancel(e) {
