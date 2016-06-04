@@ -37,7 +37,7 @@ var ImagePanel=function(x,y,w,h,dataID,cID){
 	this.move=function(x,y,z){
 				self.x=x;
 				self.y=-y;
-				self.z=z|0;
+				self.z=z||0;
 				};
 	this.changeColor=function(cID){
 				self.cindex=cID;
@@ -158,7 +158,7 @@ var ColorPanel= function(x,y,w,h,cID){
 	this.move=function(x,y,z){
 				self.x=x;
 				self.y=-y;
-				self.z=z|0;
+				self.z=z||0;
 				};
 	this.create= 
 	function(id){//(x,y) top-left coordinate, width, height, index of scale
