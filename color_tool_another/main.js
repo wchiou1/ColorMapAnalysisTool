@@ -37,7 +37,7 @@ var ImagePanel=function(x,y,w,h,dataID,cID){
 	this.move=function(x,y,z){
 				self.x=x;
 				self.y=-y;
-				self.z=z||0;
+				self.z=-z||0;
 				};
 	this.changeColor=function(cID){
 				self.cindex=cID;
@@ -158,8 +158,12 @@ var ColorPanel= function(x,y,w,h,cID){
 	this.move=function(x,y,z){
 				self.x=x;
 				self.y=-y;
-				self.z=z||0;
+				self.z=-z||0;
 				};
+	this.scale=function(w,h){
+		self.w=w;
+		self.h=h;
+	};
 	this.create= 
 	function(id){//(x,y) top-left coordinate, width, height, index of scale
 		var colorScaleVertices=[];
@@ -228,6 +232,61 @@ var ColorPanel= function(x,y,w,h,cID){
 	
 };
 
+
+var Rectangle= function(){
+	this.x = 0;
+	this.y = 0;
+	this.w = 0;
+	this.h = 0;
+	this.verticesBuffer = gl.createBuffer();
+	this.verticesColorBuffer = gl.createBuffer();
+	var self=this;
+	this.scale=function(w,h){
+		self.w=w;
+		self.h=h;
+	};
+	this.move=function(x,y,z){
+		self.x=x;
+		self.y=-y;
+		self.z=-z||0;
+	};
+	
+	gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0,0,	0,-1,0,	1,0,0, 1,-1,0]), gl.STATIC_DRAW);
+		
+	gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([1,1,1,1,	1,1,1,1, 1,1,1,1,	1,1,1,1]), gl.STATIC_DRAW);
+
+	this.changeColor= function(r,b,g,a){
+		var a= a||1;
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([r,b,g,a,	r,b,g,a, r,b,g,a,	r,b,g,a]), gl.STATIC_DRAW);
+	};
+	this.draw= function(){
+		perspectiveMatrix = makeOrtho(orthogonal.l, orthogonal.r, orthogonal.b, orthogonal.t, 0.1, 100.0);
+		
+		
+		loadIdentity();
+		mvPushMatrix();
+		mvTranslate([self.x, self.y, self.z-1.0]);
+		mvScale([self.w,self.h,1]);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+		gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+		gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
+
+		setMatrixUniforms();
+		
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		
+		mvPopMatrix();
+	};
+};
+
+var Shape={};
+
 function start() {
 
 	  canvas = document.getElementById("glcanvas");
@@ -247,11 +306,8 @@ function start() {
 
 		initShaders();
 
-		// Here's where we call the routine that builds all the objects
-		// we'll be drawing.
-
-		//initBuffers();
-
+		initShape();
+		
 		// Set up to draw the scene periodically.
 		//setInterval(drawScene, 15);
 		// no need to update screen every 15ms
@@ -292,29 +348,39 @@ function drawScene() {
   // Clear the canvas before we start drawing on it.
 
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  
-  
+	
+	//this draws a rectangle
+	var rectangle=Shape.rectangle;
+	rectangle.scale(100,100);
+	rectangle.move(300,300,0.5);
+	rectangle.changeColor(0.5,0.5,0.5);
+	rectangle.draw();
+	
 	var l=img_panels.length;
 	if(l>0){
-		
-		img_panels[l-1].changeColor(0);
-		img_panels[l-1].scale(img_data[0].w, img_data[0].h);
-		img_panels[l-1].move(100,150);
+		//this draws the image
+		img_panels[l-1].changeColor(0);//changeColor(id) here takes the index of the colormap in scales[]
+		img_panels[l-1].scale(img_data[0].w, img_data[0].h);//can change the dimension
+		img_panels[l-1].move(100,150,0); //you can change z value, things in the front blocks things in the bacl
 		img_panels[l-1].draw();
+		//draw in another colormap
 		img_panels[l-1].changeColor(2);
-		img_panels[l-1].move(300,150);
+		img_panels[l-1].move(300,150,1);
 		img_panels[l-1].draw();
 		
 	}
 	
-	
+	//this draw colormap as thumbnail;
 	for(var i=0;i<color_panels.length;i++){
-		
+		color_panels[i].scale(50,50);
 		color_panels[i].move(200+60*i,50);
 		color_panels[i].draw();
-		
 	}
 	
+	//can also make it longer
+	color_panels[0].scale(200,50);
+	color_panels[0].move(0,350);
+	color_panels[0].draw();
 }
 
 //
@@ -406,6 +472,10 @@ function getShader(gl, id) {
   }
 
   return shader;
+}
+
+function initShape(){
+	Shape.rectangle= new Rectangle();
 }
 
 //set the orthogonal view to view the entire image
