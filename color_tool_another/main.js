@@ -484,67 +484,44 @@ function setIdentityUniforms(){
 
 $(document).on('load',dropInit());
 function dropInit(){
-if(window.FileReader) { 
-  addEventHandler(window, 'load', function() {
-    var status = document.getElementById('status');
-    var drop   = document.getElementById('drop');
-    var list   = document.getElementById('list');
-  	
-    function cancel(e) {
-       e.preventDefault(); 
-    }
-	
-    addEventHandler(drop, 'dragover', cancel);
-    addEventHandler(drop, 'dragenter', cancel);
-	addEventHandler(drop,'drop', function(e) {
-		e = e || window.event;
-		cancel(e);
-        e.stopPropagation();
-        
-        var files = e.dataTransfer.files; // Array of all files
-        for (var i=0, file; file=files[i]; i++) {
-                var reader = new FileReader();
-                reader.onload = function(e2) { // finished reading file data.
-					var image2DArray=[];
-					var imageHeight= undefined;
-					var imageWidth= undefined;
-					
-					
-					//parse the data into the array
-                    var lines=e2.target.result.split('\n');
-					if(lines[lines.length-1]=="")lines.pop();
-					imageHeight=lines.length;
-					for(var i=0;i<lines.length;i++) {
-						var values=lines[i].split(' ');
-						if(values[values.length-1]=="\r")values.pop();
-						if(!imageWidth){
-							imageWidth = values.length;
-						}else if(imageWidth!=values.length){
-							alert('error reading the file. line:'+i+ ", num:"+values.length+", value=("+values[0]+")");
+	if(window.FileReader) {
+		addEventHandler(window, 'load', function() {
+			var drop1  = document.getElementById('drop1');
+			var drop2 = document.getElementById('drop2');
+			function cancel(e) {
+			   e.preventDefault(); 
+			}
+			
+			function readDroppedFiles(e,type) {
+				e = e || window.event;
+				cancel(e);
+				e.stopPropagation();
+				
+				var files = e.dataTransfer.files; // Array of all files
+				for (var i=0, file; file=files[i]; i++) {
+					var reader = new FileReader();
+					reader.onload = function(e2) { // finished reading file data.
+						if(type=='img'){
+							readTextToImage(e2.target.result);
 						}
-						for(var j=0; j<values.length; j++){
-							if(values[j]) image2DArray.push(Number(values[j]));
+						else if(type=='color'){
+							readTextToScale(e2.target.result);
 						}
 					}
-					var imgData ={
-						w: imageWidth,
-						h: imageHeight,
-						data: image2DArray
-					};
-					img_data.push(imgData);
-					img_panels.push(new ImagePanel(0,0,1,1,img_data.length-1,null));
-
-					//setView();
-					drawScene();
-			
-                }
-                reader.readAsText(file); // start reading the file data.
+					reader.readAsText(file); // start reading the file data.
+				}
 			}
-		}) 
-  });
-} else { 
-  document.getElementById('status').innerHTML = 'Your browser does not support the HTML5 FileReader.';
-}
+			
+			addEventHandler(drop1, 'dragover', cancel);
+			addEventHandler(drop1, 'dragenter', cancel);
+			addEventHandler(drop1,'drop', function(e){readDroppedFiles(e,'img');});
+			addEventHandler(drop2, 'dragover', cancel);
+			addEventHandler(drop2, 'dragenter', cancel);
+			addEventHandler(drop2,'drop', function(e){readDroppedFiles(e,'color');});
+		});
+	} else {
+	  alert('Your browser does not support the HTML5 FileReader.');
+	}
 }
 
 
@@ -577,6 +554,9 @@ function readOneFileFromServer(URL,type){
 		if(type=="scale"){
 			readTextToScale(text);
 		}
+		else if(type=="image"){
+			readTextToImage(text);
+		}
 		else{
 			console.log("file does not match:");
 			console.log(text);
@@ -589,6 +569,39 @@ function readOneFileFromServer(URL,type){
 });
 }
 
+function readTextToImage(text){
+	var image2DArray=[];
+	var imageHeight= undefined;
+	var imageWidth= undefined;
+
+	//parse the data into the array
+	var lines=text.split('\n');
+	if(lines[lines.length-1]=="")lines.pop();
+	imageHeight=lines.length;
+	for(var i=0;i<lines.length;i++) {
+		var values=lines[i].split(' ');
+		if(values[values.length-1]=="\r")values.pop();
+		if(!imageWidth){
+			imageWidth = values.length;
+		}else if(imageWidth!=values.length){
+			alert('error reading the file. line:'+i+ ", num:"+values.length+", value=("+values[0]+")");
+			return;
+		}
+		for(var j=0; j<values.length; j++){
+			if(values[j]) image2DArray.push(Number(values[j]));
+		}
+	}
+	var imgData ={
+		w: imageWidth,
+		h: imageHeight,
+		data: image2DArray
+	};
+	img_data.push(imgData);
+	img_panels.push(new ImagePanel(0,0,1,1,img_data.length-1,null));
+
+	//setView();
+	drawScene();
+}
 
 function readTextToScale(text){
 	var scale=[];

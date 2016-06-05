@@ -12,10 +12,14 @@ canvas{
 }
 
 
-#drop {
-  min-height: 150px;
+#drop1 {
+  height: 100px;
   width: 250px;
   border: 1px solid blue;
-  margin: 10px;
-  padding: 10px;
+}
+
+#drop2 {
+  height: 100px;
+  width: 250px;
+  border: 1px solid orange;
 }
