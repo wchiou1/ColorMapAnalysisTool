@@ -479,11 +479,11 @@ function initShape(){
 }
 
 //set the orthogonal view to view the entire image
-function setView(){
-	orthogonal.l=0;
-	orthogonal.r=imageWidth;
-	orthogonal.b=0;
-	orthogonal.t=imageHeight;
+function setView(l,r,b,t){
+	orthogonal.l=l;
+	orthogonal.r=r;
+	orthogonal.b=b;
+	orthogonal.t=t;
 }
 
 
@@ -549,7 +549,7 @@ function setIdentityUniforms(){
 	gl.uniformMatrix4fv(mvUniform, false, new Float32Array(Matrix.I(4).flatten()));
 }
 //
-//handle the drop event
+//handle the File drop event and selecting files
 //
 
 function addEventHandler(obj, evt, handler) {
@@ -565,8 +565,8 @@ function addEventHandler(obj, evt, handler) {
     }
 }
 
-$(document).on('load',dropInit());
-function dropInit(){
+$(document).on('load',FileListenerInit());
+function FileListenerInit(){
 	if(window.FileReader) {
 		addEventHandler(window, 'load', function() {
 			var drop1  = document.getElementById('drop1');
@@ -711,7 +711,6 @@ function readTextToScale(text){
 	
 	color_panels.push(new ColorPanel(0,0,50,50,scales.length-1));
 
-	//console.log("drawscene");
 	drawScene();
 }
 
