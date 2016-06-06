@@ -361,16 +361,16 @@ function drawScene() {
 		//this draws the image
 		img_panels[l-1].changeColor(0);//changeColor(id) here takes the index of the colormap in scales[]
 		img_panels[l-1].scale(img_data[0].w, img_data[0].h);//can change the dimension
-		img_panels[l-1].move(100,150,0); //you can change z value, things in the front blocks things in the bacl
+		img_panels[l-1].move(100,150,0); //you can change z value, things in the front block things in the back
 		img_panels[l-1].draw();
-		//draw in another colormap
+		//draw with another colormap
 		img_panels[l-1].changeColor(2);
 		img_panels[l-1].move(300,150,1);
 		img_panels[l-1].draw();
 		
 	}
 	
-	//this draw colormap as thumbnail;
+	//this draw colormap as thumbnails;
 	for(var i=0;i<color_panels.length;i++){
 		color_panels[i].scale(50,50);
 		color_panels[i].move(200+60*i,50);
@@ -552,12 +552,27 @@ function setIdentityUniforms(){
 //handle the drop event
 //
 
+function addEventHandler(obj, evt, handler) {
+    if(obj.addEventListener) {
+        // W3C method
+        obj.addEventListener(evt, handler, false);
+    } else if(obj.attachEvent) {
+        // IE method.
+        obj.attachEvent('on'+evt, handler);
+    } else {
+        // Old school method.
+        obj['on'+evt] = handler;
+    }
+}
+
 $(document).on('load',dropInit());
 function dropInit(){
 	if(window.FileReader) {
 		addEventHandler(window, 'load', function() {
 			var drop1  = document.getElementById('drop1');
 			var drop2 = document.getElementById('drop2');
+			var select1 = document.getElementById('selector1');
+			var select2 = document.getElementById('selector2');
 			function cancel(e) {
 			   e.preventDefault(); 
 			}
@@ -568,18 +583,7 @@ function dropInit(){
 				e.stopPropagation();
 				
 				var files = e.dataTransfer.files; // Array of all files
-				for (var i=0, file; file=files[i]; i++) {
-					var reader = new FileReader();
-					reader.onload = function(e2) { // finished reading file data.
-						if(type=='img'){
-							readTextToImage(e2.target.result);
-						}
-						else if(type=='color'){
-							readTextToScale(e2.target.result);
-						}
-					}
-					reader.readAsText(file); // start reading the file data.
-				}
+				readFiles(files,type);
 			}
 			
 			addEventHandler(drop1, 'dragover', cancel);
@@ -588,12 +592,29 @@ function dropInit(){
 			addEventHandler(drop2, 'dragover', cancel);
 			addEventHandler(drop2, 'dragenter', cancel);
 			addEventHandler(drop2,'drop', function(e){readDroppedFiles(e,'color');});
+			addEventHandler(select1,'change', handleImageFileSelect);
+			addEventHandler(select2,'change', handleColorFileSelect);
 		});
 	} else {
 	  alert('Your browser does not support the HTML5 FileReader.');
 	}
 }
 
+function readFiles(files,type){
+	for (var i=0, file; file=files[i]; i++) {
+		if (!file.type.match('plain')) continue;
+		var reader = new FileReader();
+		reader.onload = function(e2) { // finished reading file data.
+			if(type=='img'){
+				readTextToImage(e2.target.result);
+			}
+			else if(type=='color'){
+				readTextToScale(e2.target.result);
+			}
+		}
+		reader.readAsText(file); // start reading the file data.
+	}
+}
 
 $(document).on("load",readFilesFromServer("./data/colorscale/","scale"));
 
@@ -694,16 +715,13 @@ function readTextToScale(text){
 	drawScene();
 }
 
-
-function addEventHandler(obj, evt, handler) {
-    if(obj.addEventListener) {
-        // W3C method
-        obj.addEventListener(evt, handler, false);
-    } else if(obj.attachEvent) {
-        // IE method.
-        obj.attachEvent('on'+evt, handler);
-    } else {
-        // Old school method.
-        obj['on'+evt] = handler;
-    }
+function handleImageFileSelect(evt) {
+    var files = evt.target.files;
+    readFiles(files,"img");
 }
+
+function handleColorFileSelect(evt) {
+    var files = evt.target.files;
+    readFiles(files,"color");
+}
+
