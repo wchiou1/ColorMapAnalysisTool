@@ -1,4 +1,4 @@
-
+//test
 var canvas;
 var gl;
 
@@ -15,9 +15,9 @@ var color_panels=[];
 
 var orthogonal={
 	l: 0,
-	r: 1200,
+	r: 600,
 	t: 0,
-	b: -600
+	b: -400
 };
 
 var ImagePanel=function(x,y,w,h,dataID,cID){ asd
