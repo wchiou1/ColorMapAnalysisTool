@@ -16,8 +16,8 @@ var imageWidth;
 var imageHeight;
 var orthogonal={
 	l: 0,
-	r: 100,
-	t: 100,
+	r: 1200,
+	t: 600,
 	b: 0
 };
 //
@@ -156,9 +156,11 @@ function drawScene() {
 	setMatrixUniforms();
 	
 	//draw the squares one by one as two triangles
-	for(var i=0;i<imageWidth*imageHeight;i++){
-		gl.drawArrays(gl.TRIANGLE_FAN, i*4, 4);
-	}
+	
+	//for(var i=0;i<imageWidth*imageHeight;i++){
+		gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+	//}
+	
 	
 	//again not using indices to draw because the index runs out of range (unsighed_short)
 	//gl.drawElements(gl.TRIANGLES, imageWidth*imageHeight*6, gl.UNSIGNED_SHORT, 0);
@@ -261,8 +263,10 @@ function createImageVertices(){
 	//upper left of image at (0,imageHeight)
 	//lower right of image at (imageWidth,0)
 	var imageVertices=[];
+	/*
 	for(var i=imageHeight;i>0;i--){
 		for(var j=0; j<imageWidth; j++){
+		
 			imageVertices.push(j);
 			imageVertices.push(i);
 			imageVertices.push(0);
@@ -281,6 +285,12 @@ function createImageVertices(){
 			
 		}
 	}
+	*/
+	imageVertices=[ 
+	    20.0, 20.0,  0.0,
+		20.0, 50.0,  0.0,
+		50.0, 50.0,  0.0,
+		50.0, 20.0,  0.0]
 	// Select the verticesBuffer as the one to apply vertex
   // operations to from here out.
   gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
@@ -290,12 +300,15 @@ function createImageVertices(){
   // then use it to fill the current vertex buffer.
 
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageVertices), gl.STATIC_DRAW);
+  verticesBuffer.itemSize = 3;
+  verticesBuffer.numItems = 4;
 
 }
 
 function createImageColors(){
 	//a color for each vertex
 	var imageColors=[];
+	/*
 	for(var i=0;i<imageHeight;i++){
 		for(var j=0; j<imageWidth; j++){
 			var color=image2DArray[imageWidth*i+j];
@@ -307,9 +320,15 @@ function createImageColors(){
 			}
 		}
 	}
+	*/
+	for (var i=0; i < 4; i++) {
+		imageColors = imageColors.concat([0.5, 0.5, 1.0, 1.0]);
+	}
 	gl.bindBuffer(gl.ARRAY_BUFFER, verticesColorBuffer);
 	
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageColors), gl.STATIC_DRAW);
+	verticesColorBuffer.itemSize = 4;
+	verticesColorBuffer.numItems = 4;
 }
 
 //not used for now
@@ -438,8 +457,8 @@ if(window.FileReader) {
 					}
 
 					
-					canvas.style.width=imageWidth+"px";
-					canvas.style.height=imageHeight+"px";
+					//canvas.style.width=imageWidth+"px";
+					//canvas.style.height=imageHeight+"px";
 					createImageVertices();
 					createImageColors();
 					//createImageVerticesIndex();
