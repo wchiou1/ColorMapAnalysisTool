@@ -1,59 +1,292 @@
-//TODO Complete hitbox testing for receiverIcons, render receiverIcons
+
 var canvas;
 var gl;
-var verticesBuffer;
-var verticesColorBuffer;
-var iconVBuffer;
-var iconCBuffer;
-var dragBuffer = [];
-var receiverBuffers = [];
-var iconViewBuffer = [];
-//var verticesIndexBuffer;
+
 var mvMatrix;
 var shaderProgram;
 var vertexPositionAttribute;
 var vertexColorAttribute;
 var perspectiveMatrix;
 
-var mouseDown=false;
-var lastMouseX;
-var lastMouseY;
+var img_data=[];
+var scales=[];
+var img_panels=[];
+var color_panels=[];
 
-
-//Color stuffs
-var colorMaps = [];//2d array of objects which stores the colors
-var iconHeight = 50;
-var iconWidth = 50;
-var iconX = 600;
-var iconY = 50;
-var receiveX = 50;
-var receiveY = 100;
-var receiveDelta = 300;
-var dragIcon=-1;
-var mapCIndices = [0,1];
-var setColorIndices = [];
-var iconViewOffset = 0;
-var iconViewWidth = 400;
-var iconViewHeight = 70;
-
-
-var image2DArray=[];
-var imageWidth;
-var imageHeight;
 var orthogonal={
 	l: 0,
-	r: 1200,
-	t: 600,
-	b: 0
+	r: 600,
+	t: 0,
+	b: -400
+};
+
+var ImagePanel=function(x,y,w,h,dataID,cID){ 
+	this.x=x;
+	this.y=y;
+	this.w=w;
+	this.h=h;
+	this.id=dataID;
+	this.cindex=cID;
+	this.verticesBuffer=gl.createBuffer();
+	this.verticesColorBuffer=gl.createBuffer();
+	var self=this;
+	this.scale=function(w,h){
+		self.w=w;
+		self.h=h;
+	};
+	this.move=function(x,y,z){
+				self.x=x;
+				self.y=-y;
+				self.z=-z||0;
+				};
+	this.changeColor=function(cID){
+				self.cindex=cID;
+				self.createImageColors(cID);
+		};
+	this.createImageColors=function(cID){
+		var imageColors=[];
+		var imageWidth= img_data[self.id].w;
+		var imageHeight=img_data[self.id].h;
+		var image2DArray=img_data[self.id].data;
+		var min=0;
+		var max=1;
+		if(cID!=null){
+			var len=scales[cID].length;
+			for(var i=0;i<imageHeight;i++){
+				for(var j=0; j<imageWidth; j++){
+					var color=(image2DArray[imageWidth*i+j]-min)/(max-min);
+					var colorIndex=Math.round((len-1)*color);
+					for(var k=0;k<4;k++){
+						imageColors.push(scales[cID][colorIndex].r/255);
+						imageColors.push(scales[cID][colorIndex].g/255);
+						imageColors.push(scales[cID][colorIndex].b/255);
+						imageColors.push(1);
+					}
+				}
+			}
+		}
+		else{
+			for(var i=0;i<imageHeight;i++){
+				for(var j=0; j<imageWidth; j++){
+					var color=(image2DArray[imageWidth*i+j]-min)/(max-min);
+					for(var k=0;k<4;k++){
+						imageColors.push(color);
+						imageColors.push(color);
+						imageColors.push(color);
+						imageColors.push(1);
+					}
+				}
+			}	
+		}
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageColors), gl.STATIC_DRAW);
+	};
+	this.createImageVertices=
+		function(dID){
+				var imageVertices=[];
+				var imageWidth= img_data[dID].w;
+				var imageHeight=img_data[dID].h;
+				var pixelW=1/imageWidth;
+				var pixelH=1/imageHeight;
+				for(var i=0;i>-imageHeight;i--){
+					for(var j=0; j<imageWidth; j++){
+						imageVertices.push(j*pixelW);
+						imageVertices.push(i*pixelH);
+						imageVertices.push(0);
+						
+						imageVertices.push((j+1)*pixelW);
+						imageVertices.push(i*pixelH);
+						imageVertices.push(0);
+						
+						imageVertices.push((j+1)*pixelW);
+						imageVertices.push((i-1)*pixelH);
+						imageVertices.push(0);
+						
+						imageVertices.push(j*pixelW);
+						imageVertices.push((i-1)*pixelH);
+						imageVertices.push(0);
+				
+					}
+				}
+				//console.log(imageVertices.length);
+				//console.log(imageVertices[imageVertices.length-3]);
+				//console.log(imageVertices[imageVertices.length-2]);
+				gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageVertices), gl.STATIC_DRAW);
+		};
+	this.createImageVertices(this.id);
+	this.createImageColors(this.cindex);
+	
+	this.draw= 
+		function(){
+			perspectiveMatrix = makeOrtho(orthogonal.l, orthogonal.r, orthogonal.b, orthogonal.t, 0.1, 100.0);
+			
+			loadIdentity();	
+			mvPushMatrix();
+			mvTranslate([self.x, self.y, self.z-1.0]);
+			mvScale([self.w,self.h,1]);
+			gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+			gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+			gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
+
+			setMatrixUniforms();
+			
+			var len=img_data[self.id].data.length;
+			for(var i=0;i<len;i++){
+				gl.drawArrays(gl.TRIANGLE_FAN, i*4, 4);
+			}
+			mvPopMatrix();
+		};
+	
+};
+
+var ColorPanel= function(x,y,w,h,cID){ 
+	this.x=x;
+	this.y=y;
+	this.z=0;
+	this.w=w;
+	this.h=h;
+	this.cindex=cID;
+	this.verticesBuffer=gl.createBuffer();
+	this.verticesColorBuffer=gl.createBuffer();
+	var self=this;
+	this.move=function(x,y,z){
+				self.x=x;
+				self.y=-y;
+				self.z=-z||0;
+				};
+	this.scale=function(w,h){
+		self.w=w;
+		self.h=h;
+	};
+	this.create= 
+	function(id){//(x,y) top-left coordinate, width, height, index of scale
+		var colorScaleVertices=[];
+		var colorScaleColors=[];
+		var len=scales[id].length;
+		var thickness=1/len;
+		//build vertices
+		//console.log(thickness);
+		for(var i=0;i<len;i++){
+			colorScaleVertices.push(i*thickness);
+			colorScaleVertices.push(0);
+			colorScaleVertices.push(0);
+			
+			colorScaleVertices.push(i*thickness);
+			colorScaleVertices.push(-1);
+			colorScaleVertices.push(0);
+			
+			colorScaleVertices.push((i+1)*thickness);
+			colorScaleVertices.push(0);
+			colorScaleVertices.push(0);
+			
+			colorScaleVertices.push((i+1)*thickness);
+			colorScaleVertices.push(-1);
+			colorScaleVertices.push(0);
+
+		}
+		//build colors
+		for(var i=0;i<len;i++){
+			for(var k=0;k<4;k++){
+				colorScaleColors.push(scales[id][i].r/255);
+				colorScaleColors.push(scales[id][i].g/255);
+				colorScaleColors.push(scales[id][i].b/255);
+				colorScaleColors.push(1);
+			}
+		}
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorScaleVertices), gl.STATIC_DRAW);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorScaleColors), gl.STATIC_DRAW);
+		
+	};
+	this.create(cID);
+	this.draw=function(){
+		var len=scales[cID].length;
+		perspectiveMatrix = makeOrtho(orthogonal.l, orthogonal.r, orthogonal.b, orthogonal.t, 0.1, 100.0);
+		
+		
+		loadIdentity();
+		mvPushMatrix();
+		mvTranslate([self.x, self.y, self.z-1.0]);
+		mvScale([self.w,self.h,1]);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+		gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+		gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
+
+		setMatrixUniforms();
+		for(var i=0;i<len;i++){
+			gl.drawArrays(gl.TRIANGLE_STRIP, i*4, 4);
+		}
+		mvPopMatrix();
+	};
+	
 };
 
 
+var Rectangle= function(){
+	this.x = 0;
+	this.y = 0;
+	this.w = 0;
+	this.h = 0;
+	this.verticesBuffer = gl.createBuffer();
+	this.verticesColorBuffer = gl.createBuffer();
+	var self=this;
+	this.scale=function(w,h){
+		self.w=w;
+		self.h=h;
+	};
+	this.move=function(x,y,z){
+		self.x=x;
+		self.y=-y;
+		self.z=-z||0;
+	};
+	
+	gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0,0,	0,-1,0,	1,0,0, 1,-1,0]), gl.STATIC_DRAW);
+		
+	gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([1,1,1,1,	1,1,1,1, 1,1,1,1,	1,1,1,1]), gl.STATIC_DRAW);
 
-//
-// start
-//
-// Called when the canvas is created to get the ball rolling.
-//
+	this.changeColor= function(r,b,g,a){
+		var a= a||1;
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([r,b,g,a,	r,b,g,a, r,b,g,a,	r,b,g,a]), gl.STATIC_DRAW);
+	};
+	this.draw= function(){
+		perspectiveMatrix = makeOrtho(orthogonal.l, orthogonal.r, orthogonal.b, orthogonal.t, 0.1, 100.0);
+		
+		
+		loadIdentity();
+		mvPushMatrix();
+		mvTranslate([self.x, self.y, self.z-1.0]);
+		mvScale([self.w,self.h,1]);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesBuffer);
+		gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER, self.verticesColorBuffer);
+		gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
+
+		setMatrixUniforms();
+		
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		
+		mvPopMatrix();
+	};
+};
+
+var Shape={};
+
 function start() {
 
 	  canvas = document.getElementById("glcanvas");
@@ -61,17 +294,8 @@ function start() {
 	  initWebGL(canvas);      // Initialize the GL context
 
 	  // Only continue if WebGL is available and working
-	  
-	  //Declare hardset colors(temporary)
-	  fakeColors();
-	  
-	  
-	  
+
 	  if (gl) {
-	  
-		canvas.onmousedown = handleMouseDown;
-		document.onmouseup = handleMouseUp;
-		document.onmousemove = handleMouseMove;
 		gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
 		gl.clearDepth(1.0);                 // Clear everything
 		gl.enable(gl.DEPTH_TEST);           // Enable depth testing
@@ -82,20 +306,12 @@ function start() {
 
 		initShaders();
 
-		// Here's where we call the routine that builds all the objects
-		// we'll be drawing.
-
-		initBuffers();
+		initShape();
 		
-		updateIconView();
-		
-		updateIcons();
-		updatereceiveIcons();
-
 		// Set up to draw the scene periodically.
-		drawScene();
-		// no need to update screen every 15ms
 		//setInterval(drawScene, 15);
+		// no need to update screen every 15ms
+		//drawScene();
 	  }
 	
 }
@@ -122,373 +338,6 @@ function initWebGL() {
   }
 }
 
-//
-// initBuffers
-//
-// Initialize the buffers we'll need.
-//
-function initBuffers() {
-
-	iconViewBuffer[0] = gl.createBuffer();
-	iconViewBuffer[1] = gl.createBuffer();
-	//Create buffers for the receive icons
-	for(var i=0;i<2;i++){
-		receiverBuffers[i] = [gl.createBuffer(),gl.createBuffer()];
-	}
-
-	//Create a buffer for the dragged icon vertices
-	dragBuffer[0] = gl.createBuffer();
-	
-	//Create a buffer for the dragged icon colors
-	dragBuffer[1] = gl.createBuffer();
-
-	//Create a buffer for the icons' vertices
-	iconVBuffer = gl.createBuffer();
-	
-	//Create a buffer for the icons' colors
-	iconCBuffer = gl.createBuffer();
-
-  // Create a buffer for the cube's vertices.
-
-  verticesBuffer = gl.createBuffer();
-
-  // Now create an array of vertices 
-	//each value on the image2DArray is represented with a square with 4 vertices
-	createImageVertices();
-
-  // Now set up the colors 
-	verticesColorBuffer = gl.createBuffer();
-
-	createImageColors();
-
-  // Build the element array buffer; this specifies the indices
-  // into the vertex array for each face's vertices.
-  // -----not using this now --- this method will not display all the squares
-  //just leaving this here for reference
-
-  //verticesIndexBuffer = gl.createBuffer();
-  //createImageVerticesIndex();
- 
-}
-
-//Returns the index of the receiver at the coords or -1 if there is no receiver at location
-function testreceiverHit(mouseX,mouseY){
-	//Receivers will always be in the same x value
-	if(mouseX<receiveX-iconWidth/2||mouseX>receiveX+iconWidth+iconWidth/2){
-		return -1;
-	}
-	//Test y values
-	for(var i=0;i<receiverBuffers.length;i++){
-		if(mouseY>receiveY+i*receiveDelta-iconHeight/2&&mouseY<receiveY+iconHeight+i*receiveDelta+iconHeight/2){
-			return i;
-		}
-	}
-}
-
-function testIconViewHit(mouseX,mouseY){
-	if(mouseX>iconX&&mouseX<iconX+iconViewWidth){
-		if(mouseY>iconY&&mouseY<iconY+iconViewHeight){
-			return true;
-		}
-	}
-	return false;
-}
-
-function updateIconView(){
-	//Create the border around the view
-	//Border will be 3 pixels thick
-	var iconViewV = [];
-	var iconViewC = [];
-	
-	iconViewV = iconViewV.concat([iconX-3,iconY-3,0]);
-	iconViewV = iconViewV.concat([iconX+3+iconViewWidth,iconY-3,0]);
-	iconViewV = iconViewV.concat([iconX+3+iconViewWidth,iconY+3+iconViewHeight,0]);
-	iconViewV = iconViewV.concat([iconX-3,iconY+3+iconViewHeight,0]);
-	
-	iconViewV = iconViewV.concat([iconX,iconY,0]);
-	iconViewV = iconViewV.concat([iconX+iconViewWidth,iconY,0]);
-	iconViewV = iconViewV.concat([iconX+iconViewWidth,iconY+iconViewHeight,0]);
-	iconViewV = iconViewV.concat([iconX,iconY+iconViewHeight,0]);
-	
-	for(var i=0;i<4;i++){
-		iconViewC = iconViewC.concat([0.0,0.0,0.0,1.0]);
-	}
-	for(var i=0;i<4;i++){
-		iconViewC = iconViewC.concat([0.5,0.5,0.5,1.0]);
-	}
-	
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconViewBuffer[0]);
-
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconViewV), gl.STATIC_DRAW);
-	iconViewBuffer[0].itemSize = 3;
-
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconViewBuffer[1]);
-
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconViewC), gl.STATIC_DRAW);
-	iconViewBuffer[1].itemSize = 4;
-}
-
-//Updates icons using mapCIndices(color map indices)
-function updatereceiveIcons(){
-	
-	//Setup the icon to be rendered
-	for(var i=0;i<2;i++){
-		var iconVertices=[];
-		var iconColors=[];
-		for(var j=0;j<iconWidth;j++){
-			var ix=receiveX+i+j;
-			var iy=receiveY+i*receiveDelta;
-			var tempColor=getColorHeight(mapCIndices[i],1.0*j/iconWidth);
-			iconVertices = iconVertices.concat([ix,iy,0]);
-			iconVertices = iconVertices.concat([ix+1,iy,0]);
-			iconVertices = iconVertices.concat([ix+1,iy+iconHeight,0]);
-			iconVertices = iconVertices.concat([ix,iy+iconHeight,0]);
-			
-			for(var k=0;k<4;k++){
-				iconColors = iconColors.concat([tempColor.R/255.0,tempColor.G/255.0,tempColor.B/255.0,1.0]);
-			}
-		}
-		gl.bindBuffer(gl.ARRAY_BUFFER, receiverBuffers[i][0]);
-
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconVertices), gl.STATIC_DRAW);
-		receiverBuffers[i][0].itemSize = 3;
-	
-		gl.bindBuffer(gl.ARRAY_BUFFER, receiverBuffers[i][1]);
-
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconColors), gl.STATIC_DRAW);
-		receiverBuffers[i][1].itemSize = 4;
-	}
-}
-
-//Returns which index of the color map the icon represents or -1 if no icon was hit
-function testIconHit(mouseX,mouseY){
-	//First test y value
-	if(mouseY<iconY+10||mouseY>iconY+10+iconHeight){
-		return -1;
-	}
-	//Test x values
-	for(var i=0;i<colorMaps.length;i++){
-		if(mouseX>iconX+10+i*(iconWidth+10)-iconViewOffset&&mouseX<iconX+10+iconWidth+i*(iconWidth+10)-iconViewOffset){
-			return i;
-		}
-	}
-	return -1;
-}
-
-//Gets the color at the specified "height" assuming first color in a map is 0.0 and last color is 1.0
-function getColorHeight(cindex,height){
-	if(height>=1.0||height<0.0){
-		console.log("Warning: Attempted to get invalid color height("+height+").");
-		return {'R' : 0,'G' : 0,'B' : 0};
-	}
-	var index=Math.floor(1.0*(colorMaps[cindex].length)*height);
-	return colorMaps[cindex][index];
-}
-
-function updateDrag(mouseX,mouseY){
-	//Checks if there is an icon which should be dragged
-	if(dragIcon<0){
-		return;
-	}
-	//Setup the icon to be rendered
-	var iconVertices=[];
-	var iconColors=[];
-	for(var i=0;i<iconWidth;i++){
-		var ix=mouseX+i-iconWidth/2;
-		var tempColor=getColorHeight(dragIcon,1.0*i/iconWidth);
-		iconVertices = iconVertices.concat([ix,mouseY-iconHeight/2,0]);
-		iconVertices = iconVertices.concat([ix+1,mouseY-iconHeight/2,0]);
-		iconVertices = iconVertices.concat([ix+1,mouseY+iconHeight/2,0]);
-		iconVertices = iconVertices.concat([ix,mouseY+iconHeight/2,0]);
-		
-		for(var k=0;k<4;k++){
-			iconColors = iconColors.concat([tempColor.R/255.0,tempColor.G/255.0,tempColor.B/255.0,1.0]);
-		}
-	}
-	
-	gl.bindBuffer(gl.ARRAY_BUFFER, dragBuffer[0]);
-
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconVertices), gl.STATIC_DRAW);
-	iconVBuffer.itemSize = 3;
-	
-	gl.bindBuffer(gl.ARRAY_BUFFER, dragBuffer[1]);
-
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconColors), gl.STATIC_DRAW);
-	iconCBuffer.itemSize = 4;
-}
-
-//Sets up the icons in a horizontal row starting at the coords given 
-function updateIcons(){
-	var iconVertices=[];
-	var iconColors=[];
-	for(var i=0;i<colorMaps.length;i++){
-		for(var j=0;j<iconWidth;j++){
-			var ix=iconX+i*(iconWidth+10)+j+10-iconViewOffset;
-			var iy=iconY+10;
-			var tempColor;
-			if(ix<iconX||ix>iconX+iconViewWidth){
-				tempColor={'R':.5,'G':.5,'B':.5};
-				for(var k=0;k<4;k++){
-					iconVertices = iconVertices.concat([0,0,0]);
-				}
-			}
-			else{
-				tempColor=getColorHeight(i,1.0*j/iconWidth);
-				iconVertices = iconVertices.concat([ix,iy,0]);
-				iconVertices = iconVertices.concat([ix+1,iy,0]);
-				iconVertices = iconVertices.concat([ix+1,iy+iconHeight,0]);
-				iconVertices = iconVertices.concat([ix,iy+iconHeight,0]);
-			}
-			
-			for(var k=0;k<4;k++){
-				iconColors = iconColors.concat([tempColor.R/255.0,tempColor.G/255.0,tempColor.B/255.0,1.0]);
-			}
-		}
-	}
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconVBuffer);
-
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconVertices), gl.STATIC_DRAW);
-	iconVBuffer.itemSize = 3;
-	
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconCBuffer);
-
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(iconColors), gl.STATIC_DRAW);
-	iconCBuffer.itemSize = 4;
-	
-}
-
-function getMousePos(canvas, evt) {
-	var rect = canvas.getBoundingClientRect();
-	return {
-	  x: Math.round((evt.clientX-rect.left)/(rect.right-rect.left)*canvas.width),
-	  y: Math.round((evt.clientY-rect.top)/(rect.bottom-rect.top)*canvas.height)
-	};
-}
-
-function handleMouseDown(event){
-	if(mouseDown){
-		return;
-	}
-	mouseDown=true;
-	//Get the mouse x and y
-	var mouse = getMousePos(canvas, event);
-	//Test if the icon view box was hit
-	if(testIconViewHit(mouse.x,mouse.y)){
-		
-		dragIcon=testIconHit(mouse.x,mouse.y);
-		if(dragIcon==-1){
-			dragIcon=-2;
-		}
-	}
-	lastMouseX=mouse.x;
-	lastMouseY=mouse.y;
-}
-
-
-//Called when the mouse is released
-function handleMouseUp(event){
-	var mouse = getMousePos(canvas, event);
-	mouseDown = false;
-	if(dragIcon>=0){
-		var receiveIndex =  testreceiverHit(mouse.x,mouse.y);
-		if(receiveIndex!=-1){
-			mapCIndices[receiveIndex]=dragIcon;
-			updatereceiveIcons();
-		}
-	};
-	dragIcon=-1;
-	drawScene();
-}
-
-//Called when the mouse moves
-function handleMouseMove(event){
-	if(!mouseDown){
-		return;
-	}
-	
-	var mouse = getMousePos(canvas, event);
-	
-	updateDrag(mouse.x,mouse.y);
-	
-	if(dragIcon==-2){
-		updateIconViewOffset(mouse.x,mouse.y);
-		updateIcons();
-	}
-	
-	drawScene();
-	lastMouseX=mouse.x;
-	lastMouseY=mouse.y;
-}
-
-function updateIconViewOffset(mouseX,mouseY){
-	var dx=lastMouseX-mouseX;
-	iconViewOffset = iconViewOffset+dx;
-	if(iconViewOffset<0||0>colorMaps.length*60-iconViewWidth){
-		iconViewOffset=0;
-	}
-	if(0<colorMaps.length*60-iconViewWidth+10&&iconViewOffset>colorMaps.length*60-iconViewWidth+10){
-		iconViewOffset=colorMaps.length*60-iconViewWidth+10;
-	}
-}
-
-function fakeColors(){
-//Create fake color maps for the icons
-	colorMaps[0]=[{
-				'R' : 255,
-                'G' : 0,
-				'B' : 0
-				},{
-				'R' : 0,
-                'G' : 255,
-				'B' : 0
-				},{
-				'R' : 0,
-                'G' : 0,
-				'B' : 255
-				}];
-			
-	colorMaps[1]=[{
-				'R' : 0,
-                'G' : 255,
-				'B' : 0
-				},{
-				'R' : 0,
-                'G' : 0,
-				'B' : 255
-				}];
-	colorMaps[2]=[{
-				'R' : 0,
-                'G' : 0,
-				'B' : 255
-				},{
-				'R' : 255,
-                'G' : 0,
-				'B' : 0
-				}];
-	colorMaps[3]=[{
-				'R' : 100,
-                'G' : 200,
-				'B' : 50
-				},{
-				'R' : 10,
-                'G' : 25,
-				'B' : 60
-				},{
-				'R' : 128,
-                'G' : 128,
-				'B' : 64
-				}];
-	colorMaps[4]=[{
-				'R' : 0,
-                'G' : 0,
-				'B' : 255
-				}];
-	colorMaps[5]=[{
-				'R' : 128,
-                'G' : 0,
-				'B' : 0
-				}];
-}
 
 //
 // drawScene
@@ -497,103 +346,41 @@ function fakeColors(){
 //
 function drawScene() {
   // Clear the canvas before we start drawing on it.
-  gl.clearColor(.5, .5, .5, 1);
+
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  
-  
-  
-  // Establish the perspective with which we want to view the
-  // scene....
-  // no not now ...perspectiveMatrix is a misnomer
-  //it is actually orthogonal not perspective right now
-  perspectiveMatrix = makeOrtho(orthogonal.l, orthogonal.r, orthogonal.t, orthogonal.b, 0.1, 100.0);
 	
-  // Set the drawing position to the "identity" point, which is
-  // the center of the scene.
-
-  loadIdentity();
-
-  // Now move the drawing position a bit to where we want to start
-  // drawing the square.
-  mvTranslate([-0.0, 0.0, -6.0]);
-
-  
-	mvPushMatrix();
-	//set position attribute of vertices
-  gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-  gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-
-  // Set the colors attribute for the vertices.
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, verticesColorBuffer);
-  gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
-
-  // Draw the squares
+	//this draws a rectangle
+	var rectangle=Shape.rectangle;
+	rectangle.scale(100,100);
+	rectangle.move(300,300,0.5);
+	rectangle.changeColor(0.5,0.5,0.5);
+	rectangle.draw();
 	
-	//not drawing using indices right now
-	//gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesIndexBuffer);
-	
-	//pass in uniforms to shader
-	setMatrixUniforms();
-	
-	//draw the squares one by one as two triangles
-	
-	//for(var i=0;i<imageWidth*imageHeight;i++){
-		gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-	//}
-	
-	//Draw the border of the icon view
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconViewBuffer[0]);
-	gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconViewBuffer[1]);
-	gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
-	
-	setMatrixUniforms();
-	gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-	gl.drawArrays(gl.TRIANGLE_FAN, 4, 4);
-	
-	//Render the icons
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconVBuffer);
-	gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	
-	gl.bindBuffer(gl.ARRAY_BUFFER, iconCBuffer);
-	gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
-	
-	setMatrixUniforms();
-	for(var i=0;i<colorMaps.length*iconWidth;i++){
-		gl.drawArrays(gl.TRIANGLE_FAN, i*4, 4);
+	var l=img_panels.length;
+	if(l>0){
+		//this draws the image
+		img_panels[l-1].changeColor(0);//changeColor(id) here takes the index of the colormap in scales[]
+		img_panels[l-1].scale(img_data[0].w, img_data[0].h);//can change the dimension
+		img_panels[l-1].move(100,150,0); //you can change z value, things in the front block things in the back
+		img_panels[l-1].draw();
+		//draw with another colormap
+		img_panels[l-1].changeColor(2);
+		img_panels[l-1].move(300,150,1);
+		img_panels[l-1].draw();
+		
 	}
 	
-	//Draw receive icons
-	for(var i=0;i<receiverBuffers.length;i++){
-		gl.bindBuffer(gl.ARRAY_BUFFER, receiverBuffers[i][0]);
-		gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	
-		gl.bindBuffer(gl.ARRAY_BUFFER, receiverBuffers[i][1]);
-		gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
-	
-		setMatrixUniforms();
-		for(var j=0;j<iconWidth;j++){
-			gl.drawArrays(gl.TRIANGLE_FAN, j*4, 4);
-		}
+	//this draw colormap as thumbnails;
+	for(var i=0;i<color_panels.length;i++){
+		color_panels[i].scale(50,50);
+		color_panels[i].move(200+60*i,50);
+		color_panels[i].draw();
 	}
 	
-	//Draw the dragged icon(if there is one)
-	if(dragIcon>=0){
-		gl.bindBuffer(gl.ARRAY_BUFFER, dragBuffer[0]);
-		gl.vertexAttribPointer(vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-	
-		gl.bindBuffer(gl.ARRAY_BUFFER, dragBuffer[1]);
-		gl.vertexAttribPointer(vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
-	
-		setMatrixUniforms();
-		for(var i=0;i<iconWidth;i++){
-			gl.drawArrays(gl.TRIANGLE_FAN, i*4, 4);
-		}
-	
-	}
-	 mvPopMatrix();
+	//can also make it longer
+	color_panels[0].scale(200,50);
+	color_panels[0].move(0,350);
+	color_panels[0].draw();
 }
 
 //
@@ -687,103 +474,16 @@ function getShader(gl, id) {
   return shader;
 }
 
-function createImageVertices(){
-	//total number of vertices = ImageWidth x imageHeight x 4
-	//upper left of image at (0,imageHeight)
-	//lower right of image at (imageWidth,0)
-	var imageVertices=[];
-	/*
-	for(var i=imageHeight;i>0;i--){
-		for(var j=0; j<imageWidth; j++){
-		
-			imageVertices.push(j);
-			imageVertices.push(i);
-			imageVertices.push(0);
-			
-			imageVertices.push(j+1);
-			imageVertices.push(i);
-			imageVertices.push(0);
-			
-			imageVertices.push(j+1);
-			imageVertices.push(i-1);
-			imageVertices.push(0);
-			
-			imageVertices.push(j);
-			imageVertices.push(i-1);
-			imageVertices.push(0);
-			
-		}
-	}
-	*/
-	imageVertices=[ 
-	    20.0, 20.0,  0.0,
-		20.0, 50.0,  0.0,
-		50.0, 50.0,  0.0,
-		50.0, 20.0,  0.0]
-	// Select the verticesBuffer as the one to apply vertex
-  // operations to from here out.
-  gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
-	
-	 // Now pass the list of vertices into WebGL to build the shape. We
-  // do this by creating a Float32Array from the JavaScript array,
-  // then use it to fill the current vertex buffer.
-
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageVertices), gl.STATIC_DRAW);
-  verticesBuffer.itemSize = 3;
-  verticesBuffer.numItems = 4;
-
-}
-
-function createImageColors(){
-	//a color for each vertex
-	var imageColors=[];
-	/*
-	for(var i=0;i<imageHeight;i++){
-		for(var j=0; j<imageWidth; j++){
-			var color=image2DArray[imageWidth*i+j];
-			for(var k=0;k<4;k++){
-				imageColors.push(color);
-				imageColors.push(color);
-				imageColors.push(color);
-				imageColors.push(1);
-			}
-		}
-	}
-	*/
-	for (var i=0; i < 4; i++) {
-		imageColors = imageColors.concat([0.5, 0.5, 1.0, 1.0]);
-	}
-	gl.bindBuffer(gl.ARRAY_BUFFER, verticesColorBuffer);
-	
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(imageColors), gl.STATIC_DRAW);
-	verticesColorBuffer.itemSize = 4;
-	verticesColorBuffer.numItems = 4;
-}
-
-//not used for now
-function createImageVerticesIndex(){
-	var verticesIndex=[];
-	//total imageWidth*imageHeight*2 triangles
-	for(var i=0;i<imageWidth*imageHeight;i++){
-		verticesIndex.push(4*i+0);
-		verticesIndex.push(4*i+1);
-		verticesIndex.push(4*i+2);
-		
-		verticesIndex.push(4*i+0);
-		verticesIndex.push(4*i+2);
-		verticesIndex.push(4*i+3);
-	}
-	
-	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesIndexBuffer);
-	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(verticesIndex), gl.STATIC_DRAW);
+function initShape(){
+	Shape.rectangle= new Rectangle();
 }
 
 //set the orthogonal view to view the entire image
-function setView(){
-	orthogonal.l=0;
-	orthogonal.r=imageWidth;
-	orthogonal.b=0;
-	orthogonal.t=imageHeight;
+function setView(l,r,b,t){
+	orthogonal.l=l;
+	orthogonal.r=r;
+	orthogonal.b=b;
+	orthogonal.t=t;
 }
 
 
@@ -803,8 +503,10 @@ function mvTranslate(v) {
   multMatrix(Matrix.Translation($V([v[0], v[1], v[2]])).ensure4x4());
 }
 function mvScale(v){
-	multMatrix(Matrix.Diagonal($V([v[0], v[1], v[2]])).ensure4x4());
+	multMatrix(Matrix.Diagonal([v[0], v[1], v[2],1]).ensure4x4());
 }
+
+
 var mvMatrixStack = [];
 function mvPushMatrix(m) {
   if (m) {
@@ -838,72 +540,17 @@ function setMatrixUniforms() {
   var mvUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
   gl.uniformMatrix4fv(mvUniform, false, new Float32Array(mvMatrix.flatten()));
 }
-//
-//handle the drop event
-//
 
-$(document).on('load',dropInit());
-function dropInit(){
-if(window.FileReader) { 
-  addEventHandler(window, 'load', function() {
-    var status = document.getElementById('status');
-    var drop   = document.getElementById('drop');
-    var list   = document.getElementById('list');
-  	
-    function cancel(e) {
-       e.preventDefault(); 
-    }
-	
-    addEventHandler(drop, 'dragover', cancel);
-    addEventHandler(drop, 'dragenter', cancel);
-	addEventHandler(drop,'drop', function(e) {
-		e = e || window.event;
-		cancel(e);
-        e.stopPropagation();
-        
-        var files = e.dataTransfer.files; // Array of all files
-        for (var i=0, file; file=files[i]; i++) {
-                var reader = new FileReader();
-                reader.onload = function(e2) { // finished reading file data.
-					image2DArray=[];
-					imageHeight=undefined;
-					imageWidth=undefined;
-					//parse the data into the array
-                    var lines=e2.target.result.split('\n');
-					if(lines[lines.length-1]=="")lines.pop();
-					imageHeight=lines.length;
-					for(var i=0;i<lines.length;i++) {
-						var values=lines[i].split(' ');
-						if(values[values.length-1]=="\r")values.pop();
-						if(!imageWidth){
-							imageWidth = values.length;
-						}else if(imageWidth!=values.length){
-							alert('error reading the file. line:'+i+ ", num:"+values.length+", value=("+values[0]+")");
-						}
-						for(var j=0; j<values.length; j++){
-							if(values[j]) image2DArray.push(Number(values[j]));
-						}
-					}
+function setIdentityUniforms(){
+	var pUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+	gl.uniformMatrix4fv(pUniform, false, new Float32Array(Matrix.I(4).flatten()));
 
-					
-					//canvas.style.width=imageWidth+"px";
-					//canvas.style.height=imageHeight+"px";
-					createImageVertices();
-					createImageColors();
-					//createImageVerticesIndex();
-					//setView();
-					drawScene();
-			
-                }
-                reader.readAsText(file); // start reading the file data.
-			}
-		}) 
-  });
-} else { 
-  document.getElementById('status').innerHTML = 'Your browser does not support the HTML5 FileReader.';
+	var mvUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+	gl.uniformMatrix4fv(mvUniform, false, new Float32Array(Matrix.I(4).flatten()));
 }
-}
-
+//
+//handle the File drop event and selecting files
+//
 
 function addEventHandler(obj, evt, handler) {
     if(obj.addEventListener) {
@@ -916,5 +563,164 @@ function addEventHandler(obj, evt, handler) {
         // Old school method.
         obj['on'+evt] = handler;
     }
+}
+
+$(document).on('load',FileListenerInit());
+function FileListenerInit(){
+	if(window.FileReader) {
+		addEventHandler(window, 'load', function() {
+			var drop1  = document.getElementById('drop1');
+			var drop2 = document.getElementById('drop2');
+			var select1 = document.getElementById('selector1');
+			var select2 = document.getElementById('selector2');
+			function cancel(e) {
+			   e.preventDefault(); 
+			}
+			
+			function readDroppedFiles(e,type) {
+				e = e || window.event;
+				cancel(e);
+				e.stopPropagation();
+				
+				var files = e.dataTransfer.files; // Array of all files
+				readFiles(files,type);
+			}
+			
+			addEventHandler(drop1, 'dragover', cancel);
+			addEventHandler(drop1, 'dragenter', cancel);
+			addEventHandler(drop1,'drop', function(e){readDroppedFiles(e,'img');});
+			addEventHandler(drop2, 'dragover', cancel);
+			addEventHandler(drop2, 'dragenter', cancel);
+			addEventHandler(drop2,'drop', function(e){readDroppedFiles(e,'color');});
+			addEventHandler(select1,'change', handleImageFileSelect);
+			addEventHandler(select2,'change', handleColorFileSelect);
+		});
+	} else {
+	  alert('Your browser does not support the HTML5 FileReader.');
+	}
+}
+
+function readFiles(files,type){
+	for (var i=0, file; file=files[i]; i++) {
+		if (!file.type.match('plain')) continue;
+		var reader = new FileReader();
+		reader.onload = function(e2) { // finished reading file data.
+			if(type=='img'){
+				readTextToImage(e2.target.result);
+			}
+			else if(type=='color'){
+				readTextToScale(e2.target.result);
+			}
+		}
+		reader.readAsText(file); // start reading the file data.
+	}
+}
+
+$(document).on("load",readFilesFromServer("./data/colorscale/","scale"));
+
+function readFilesFromServer(directory,type){//type=scale, image
+	$.ajax({
+    type:    "GET",
+    url:     directory+"index.txt",
+    success: function(text) {		
+            var lines=text.split('\n');
+			if(lines[lines.length-1]=="")lines.pop();
+				for(var i=0;i<lines.length;i++) {
+					readOneFileFromServer(directory+lines[i],type);
+				}
+    },
+    error:   function() {
+        // An error occurred
+		alert("cannot read files from server");
+    }
+});
+}
+
+function readOneFileFromServer(URL,type){
+	$.ajax({
+    type:    "GET",
+    url:     URL,
+    success: function(text) {
+        // `text` is the file text
+		if(type=="scale"){
+			readTextToScale(text);
+		}
+		else if(type=="image"){
+			readTextToImage(text);
+		}
+		else{
+			console.log("file does not match:");
+			console.log(text);
+		}
+    },
+    error:   function() {
+        // An error occurred
+		alert("cannot read files from server");
+    }
+});
+}
+
+function readTextToImage(text){
+	var image2DArray=[];
+	var imageHeight= undefined;
+	var imageWidth= undefined;
+
+	//parse the data into the array
+	var lines=text.split('\n');
+	if(lines[lines.length-1]=="")lines.pop();
+	imageHeight=lines.length;
+	for(var i=0;i<lines.length;i++) {
+		var values=lines[i].split(' ');
+		if(values[values.length-1]=="\r")values.pop();
+		if(!imageWidth){
+			imageWidth = values.length;
+		}else if(imageWidth!=values.length){
+			alert('error reading the file. line:'+i+ ", num:"+values.length+", value=("+values[0]+")");
+			return;
+		}
+		for(var j=0; j<values.length; j++){
+			if(values[j]) image2DArray.push(Number(values[j]));
+		}
+	}
+	var imgData ={
+		w: imageWidth,
+		h: imageHeight,
+		data: image2DArray
+	};
+	img_data.push(imgData);
+	img_panels.push(new ImagePanel(0,0,1,1,img_data.length-1,null));
+
+	//setView();
+	drawScene();
+}
+
+function readTextToScale(text){
+	var scale=[];
+	var lines=text.split('\n');
+	if(lines[lines.length-1]=="")lines.pop();
+	for(var i=0; i<lines.length;i++){
+		var color=lines[i].split(" ");
+		var rgb={
+			r: Number(color[0]),
+			g: Number(color[1]),
+			b: Number(color[2])
+		};
+		scale.push(rgb);
+	}
+	scales.push(scale);
+	
+	color_panels.push(new ColorPanel(0,0,50,50,scales.length-1));
+
+	drawScene();
+}
+
+function handleImageFileSelect(evt) {
+    var files = evt.target.files;
+    readFiles(files,"img");
+}
+
+function handleColorFileSelect(evt) {
+    var files = evt.target.files;
+    readFiles(files,"color");
 }
 
