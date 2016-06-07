@@ -1,4 +1,3 @@
-
 var canvas;
 var gl;
 
@@ -320,7 +319,17 @@ function start() {
 	  
 		canvas.onmousedown = handleMouseDown;
 		document.onmouseup = handleMouseUp;
-		document.onmousemove = handleMouseMove;
+		var scheduled=false,lastEvent;
+		document.onmousemove = 	function(event) {
+									lastEvent = event;
+									if (!scheduled) {
+									  scheduled = true;
+									  setTimeout(function() {
+										scheduled = false;
+										handleMouseMove(lastEvent);
+									  }, 50);
+									}
+								  };
 		gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
 		gl.clearDepth(1.0);                 // Clear everything
 		gl.enable(gl.DEPTH_TEST);           // Enable depth testing
@@ -912,4 +921,3 @@ function handleColorFileSelect(evt) {
     var files = evt.target.files;
     readFiles(files,"color");
 }
-
